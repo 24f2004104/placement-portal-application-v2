@@ -3,6 +3,8 @@ from flask import Flask
 from werkzeug.security import generate_password_hash
 from database import db 
 from models import User, Student, Company, JobPosition, Application, Placement
+from routes.auth import auth_bp
+from routes.dashboard import dashboard_bp
 
 def create_app():
     app = Flask(__name__)
@@ -15,8 +17,8 @@ def create_app():
 
     db.init_app(app)
 
-    from routes.auth import auth_bp
     app.register_blueprint(auth_bp, url_prefix='/api')
+    app.register_blueprint(dashboard_bp, url_prefix='/api')
 
     with app.app_context():
         db.create_all()
