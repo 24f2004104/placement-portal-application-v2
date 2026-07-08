@@ -212,7 +212,8 @@ def update_application_status(app_id):
     data = request.get_json()
     new_status = data.get('status')  
     
-    if new_status not in ['Shortlisted', 'Selected', 'Rejected']:
+    allowed_statuses = ['Applied', 'Shortlisted', 'Interview', 'Offer', 'Placed', 'Selected', 'Rejected']
+    if new_status not in allowed_statuses:
         return jsonify({"message": "Invalid application status."}), 400
         
     app = Application.query.get(app_id)
@@ -296,13 +297,18 @@ def apply_to_drive():
         return jsonify({"message": "Cannot apply to an unapproved placement drive."}), 403
         
     #Safeguard2: Ensuring the deadline hasn't passed
-    if datetime.now(datetime.UTC) > drive.deadline:
+    current_time = datetime.now(datetime.UTC).replace(tzinfo=None)
+    if current_time > drive.deadline:
         return jsonify({"message": "The application deadline for this drive has passed."}), 400
         
     #Safeguard3: Preventing duplicate applications for the same job
     existing_app = Application.query.filter_by(student_id=student_id, job_id=drive_id).first()
     if existing_app:
         return jsonify({"message": "You have already applied to this placement drive."}), 400
+    
+    #Safeguard4: Ensuring the student is not blacklisted 
+    if not student.user.is_active:
+        return jsonify({"message": "Your student account is currently deactivated."}), 403
 
     # Creating the application record 
     new_application = Application(
