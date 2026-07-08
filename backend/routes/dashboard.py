@@ -241,3 +241,120 @@ def update_application_status(app_id):
             
     db.session.commit()
     return jsonify({"message": f"Applicant status updated to '{new_status}' successfully!"}), 200
+
+# STUDENT ENDPOINTS
+
+#1.Fetching approved placement drives (with search/filter)
+@dashboard_bp.route('/student/drives', methods=['GET'])
+def get_approved_drives():
+    search_query = request.args.get('q', '').strip()
+    
+    query = JobPosition.query.filter_by(status='Approved')
+
+    if search_query:
+        query = query.filter(
+            (JobPosition.title.ilike(f"%{search_query}%")) |
+            (JobPosition.description.ilike(f"%{search_query}%"))
+        )
+        
+    drives = query.all()
+    drive_list = []
+    
+    for d in drives:
+        drive_list.append({
+            "id": d.id,
+            "company_name": d.company.company_name,
+            "title": d.title,
+            "description": d.description,
+            "salary": d.salary,
+            "eligibility_criteria": d.eligibility_criteria,
+            "deadline": d.deadline.strftime("%Y-%m-%d %H:%M"),
+            "status": d.status
+        })
+        
+    return jsonify({"drives": drive_list}), 200
+
+
+#2.Applying to a placement drive (with safeguards)
+@dashboard_bp.route('/student/apply', methods=['POST'])
+def apply_to_drive():
+    data = request.get_json()
+    student_id = data.get('student_id')
+    drive_id = data.get('drive_id')
+    
+    if not student_id or not drive_id:
+        return jsonify({"message": "Student ID and Drive ID are required."}), 400
+        
+    student = Student.query.get(student_id)
+    drive = JobPosition.query.get(drive_id)
+    
+    if not student or not drive:
+        return jsonify({"message": "Student or Placement Drive not found."}), 444
+        
+    #Safeguard1: Ensuring the student only applies to 'Approved' drives
+    if drive.status != 'Approved':
+        return jsonify({"message": "Cannot apply to an unapproved placement drive."}), 403
+        
+    #Safeguard2: Ensuring the deadline hasn't passed
+    if datetime.now(datetime.UTC) > drive.deadline:
+        return jsonify({"message": "The application deadline for this drive has passed."}), 400
+        
+    #Safeguard3: Preventing duplicate applications for the same job
+    existing_app = Application.query.filter_by(student_id=student_id, job_id=drive_id).first()
+    if existing_app:
+        return jsonify({"message": "You have already applied to this placement drive."}), 400
+
+    # Creating the application record 
+    new_application = Application(
+        student_id=student_id,
+        job_id=drive_id,
+        status='Applied' 
+    )
+    
+    db.session.add(new_application)
+    db.session.commit()
+    
+    return jsonify({"message": "Application submitted successfully!"}), 201
+
+
+#3.Viewing student's complete application history
+@dashboard_bp.route('/student/<int:student_id>/applications', methods=['GET'])
+def get_student_applications(student_id):
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"message": "Student profile not found."}), 444
+        
+    apps = Application.query.filter_by(student_id=student_id).all()
+    history = []
+    
+    for app in apps:
+        drive = app.job_position
+        history.append({
+            "application_id": app.id,
+            "drive_id": drive.id,
+            "drive_title": drive.title,
+            "company_name": drive.company.company_name,
+            "applied_date": app.applied_date.strftime("%Y-%m-%d"),
+            "status": app.status 
+        })
+        
+    return jsonify({"applications": history}), 200
+
+
+#4.Viewing student's succesful placement results 
+@dashboard_bp.route('/student/<int:student_id>/placements', methods=['GET'])
+def get_student_placements(student_id):
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"message": "Student profile not found."}), 444
+        
+    placements = Placement.query.filter_by(student_id=student_id).all()
+    placement_list = [{
+        "placement_id": p.id,
+        "company_name": p.company.company_name,
+        "job_title": p.position.title,
+        "salary": p.salary,
+        "joining_date": p.joining_date.strftime("%Y-%m-%d") if p.joining_date else "To be announced"
+    } for p in placements]
+    
+    return jsonify({"placements": placement_list}), 200
