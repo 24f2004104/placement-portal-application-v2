@@ -77,6 +77,7 @@ export default {
         localStorage.setItem('token', response.data.token)
         localStorage.setItem('role', response.data.role)
         localStorage.setItem('username', response.data.username)
+        localStorage.setItem('profile_id', response.data.profile_id)
 
         // Logging the successful response to verify
         console.log("Login successful! Role:", response.data.role)

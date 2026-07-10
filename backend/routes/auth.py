@@ -93,6 +93,12 @@ def login():
     if user.role == 'company':
         if not user.company_profile.is_approved:
             return jsonify({"message": "Your registration is pending Admin approval."}), 403
+        
+    profile_id = None
+    if user.role == 'student' and user.student_profile:
+        profile_id = user.student_profile.id
+    elif user.role == 'company' and user.company_profile:
+        profile_id = user.company_profile.id
     
     token = generate_token(user.id, user.role)
 
@@ -100,5 +106,6 @@ def login():
         "message": "Login successful!",
         "token": token,
         "role": user.role,
-        "username": user.username
+        "username": user.username,
+        "profile_id": profile_id
     }), 200
