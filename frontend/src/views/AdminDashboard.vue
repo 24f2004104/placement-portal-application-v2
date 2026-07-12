@@ -40,10 +40,10 @@
     </div>
 
     <div class="row">
-      <!-- Companies approval and blacklisting panel -->
+      <!-- 1. Registered companies panel -->
       <div class="col-md-12 mb-4">
         <div class="card shadow-sm p-4">
-          <h4 class="mb-3 text-secondary">Registered Companies</h4>
+          <h4 class="mb-3 text-secondary border-bottom pb-2">Registered Companies Management</h4>
           <div class="table-responsive">
             <table class="table align-middle">
               <thead>
@@ -72,7 +72,6 @@
                     </span>
                   </td>
                   <td class="text-end">
-                    <!-- Approve Button (Shows only if company is pending) -->
                     <button 
                       v-if="!company.is_approved" 
                       @click="approveCompany(company.id)" 
@@ -80,12 +79,17 @@
                     >
                       Approve
                     </button>
-                    <!-- Deactivate/Blacklist toggle button -->
                     <button 
                       @click="toggleUserStatus(company.user_id)" 
-                      :class="company.is_active ? 'btn btn-sm btn-outline-danger' : 'btn btn-sm btn-outline-success'"
+                      :class="company.is_active ? 'btn btn-sm btn-outline-warning me-2' : 'btn btn-sm btn-outline-success me-2'"
                     >
                       {{ company.is_active ? 'Deactivate' : 'Activate' }}
+                    </button>
+                    <button 
+                      @click="removeCompany(company.id)" 
+                      class="btn btn-sm btn-outline-danger"
+                    >
+                      Remove
                     </button>
                   </td>
                 </tr>
@@ -97,6 +101,104 @@
           </div>
         </div>
       </div>
+
+      <!-- 2. Placement drives management panel -->
+      <div class="col-md-12 mb-4">
+        <div class="card shadow-sm p-4">
+          <h4 class="mb-3 text-secondary border-bottom pb-2">Placement Drives Management</h4>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Job Title</th>
+                  <th>Company</th>
+                  <th>Salary Package</th>
+                  <th>Deadline</th>
+                  <th>Status</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="drive in drives" :key="drive.id">
+                  <td><strong>{{ drive.title }}</strong></td>
+                  <td>{{ drive.company_name }}</td>
+                  <td>{{ drive.salary ? 'INR ' + drive.salary : 'N/A' }}</td>
+                  <td>{{ drive.deadline }}</td>
+                  <td>
+                    <span :class="getDriveStatusBadge(drive.status)">
+                      {{ drive.status }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <button 
+                      v-if="drive.status === 'Pending' || drive.status === 'Rejected'" 
+                      @click="updateDriveStatus(drive.id, 'Approved')" 
+                      class="btn btn-sm btn-success me-2"
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      v-if="drive.status === 'Pending' || drive.status === 'Approved'" 
+                      @click="updateDriveStatus(drive.id, 'Rejected')" 
+                      class="btn btn-sm btn-warning me-2"
+                    >
+                      Reject
+                    </button>
+                    <button 
+                      @click="removeDrive(drive.id)" 
+                      class="btn btn-sm btn-outline-danger"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="drives.length === 0">
+                  <td colspan="6" class="text-center text-muted">No placement drives found.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Student applications management log  -->
+      <div class="col-md-12 mb-4">
+        <div class="card shadow-sm p-4">
+          <h4 class="mb-3 text-secondary border-bottom pb-2">Student Applications Tracking Log</h4>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Student Name</th>
+                  <th>Education</th>
+                  <th>Target Company</th>
+                  <th>Job Title</th>
+                  <th>Applied Date</th>
+                  <th>Current Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="app in applications" :key="app.id">
+                  <td><strong>{{ app.student_name }}</strong></td>
+                  <td>{{ app.education || 'N/A' }}</td>
+                  <td>{{ app.company_name }}</td>
+                  <td>{{ app.drive_title }}</td>
+                  <td>{{ app.applied_date }}</td>
+                  <td>
+                    <span :class="getApplicationStatusBadge(app.status)">
+                      {{ app.status }}
+                    </span>
+                  </td>
+                </tr>
+                <tr v-if="applications.length === 0">
+                  <td colspan="6" class="text-center text-muted">No job applications submitted yet in the system.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -110,11 +212,12 @@ export default {
     return {
       metrics: null,
       companies: [],
+      drives: [],
+      applications: [], // Applications log array
       alertMessage: ''
     }
   },
   async mounted() {
-    // Fetching metrics and user details on loading the component
     this.fetchData()
   },
   methods: {
@@ -125,6 +228,13 @@ export default {
 
         const usersRes = await axios.get('/api/admin/users')
         this.companies = usersRes.data.companies
+
+        const drivesRes = await axios.get('/api/admin/drives')
+        this.drives = drivesRes.data.drives
+
+        // Fetching applications log 
+        const appsRes = await axios.get('/api/admin/applications')
+        this.applications = appsRes.data.applications
       } catch (error) {
         console.error("Error fetching admin dashboard data:", error)
       }
@@ -132,9 +242,8 @@ export default {
     async approveCompany(companyId) {
       try {
         const response = await axios.post(`/api/admin/company/${companyId}/approve`)
-        this.alertMessage = response.data.message
-        this.fetchData() // Refresh view
-        setTimeout(() => { this.alertMessage = '' }, 3000)
+        this.showAlert(response.data.message)
+        this.fetchData()
       } catch (error) {
         console.error("Error approving company:", error)
       }
@@ -142,15 +251,57 @@ export default {
     async toggleUserStatus(userId) {
       try {
         const response = await axios.post(`/api/admin/user/${userId}/toggle-status`)
-        this.alertMessage = response.data.message
-        this.fetchData() // Refresh view
-        setTimeout(() => { this.alertMessage = '' }, 3000)
+        this.showAlert(response.data.message)
+        this.fetchData()
       } catch (error) {
         console.error("Error toggling user status:", error)
       }
     },
+    async removeCompany(companyId) {
+      if (!confirm("Are you sure you want to completely remove this company and all its login credentials?")) return
+      try {
+        const response = await axios.delete(`/api/admin/company/${companyId}`)
+        this.showAlert(response.data.message)
+        this.fetchData()
+      } catch (error) {
+        console.error("Error removing company:", error)
+      }
+    },
+    async updateDriveStatus(driveId, status) {
+      try {
+        const response = await axios.post(`/api/admin/drive/${driveId}/status`, { status })
+        this.showAlert(response.data.message)
+        this.fetchData()
+      } catch (error) {
+        console.error("Error updating drive status:", error)
+      }
+    },
+    async removeDrive(driveId) {
+      if (!confirm("Are you sure you want to completely remove this placement drive?")) return
+      try {
+        const response = await axios.delete(`/api/admin/drive/${driveId}`)
+        this.showAlert(response.data.message)
+        this.fetchData()
+      } catch (error) {
+        console.error("Error removing drive:", error)
+      }
+    },
+    getDriveStatusBadge(status) {
+      if (status === 'Approved') return 'badge bg-success'
+      if (status === 'Rejected') return 'badge bg-danger'
+      return 'badge bg-warning text-dark'
+    },
+    getApplicationStatusBadge(status) {
+      if (status === 'Selected') return 'badge bg-success'
+      if (status === 'Shortlisted') return 'badge bg-info'
+      if (status === 'Rejected') return 'badge bg-danger'
+      return 'badge bg-secondary'
+    },
+    showAlert(msg) {
+      this.alertMessage = msg
+      setTimeout(() => { this.alertMessage = '' }, 3000)
+    },
     handleLogout() {
-      // Clearing all session details on logout
       localStorage.clear()
       this.$router.push('/login')
     }

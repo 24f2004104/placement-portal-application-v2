@@ -4,6 +4,7 @@ import RegisterStudent from '../views/RegisterStudent.vue'
 import RegisterCompany from '../views/RegisterCompany.vue'
 import AdminDashboard from '../views/AdminDashboard.vue'
 import CompanyDashboard from '../views/CompanyDashboard.vue'
+import StudentDashboard from '../views/StudentDashboard.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -21,6 +22,11 @@ const routes = [
     path: '/company-dashboard', 
     component: CompanyDashboard, 
     meta: { requiresRole: 'company' } 
+  },
+  { 
+    path: '/student-dashboard', 
+    component: StudentDashboard, 
+    meta: { requiresRole: 'student' } 
   }
 ]
 
