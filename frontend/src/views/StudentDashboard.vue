@@ -108,6 +108,10 @@
       <div v-if="activeTab === 'applications'">
         <div class="card shadow-sm p-4">
           <h4 class="mb-3 text-secondary">Your Job Application Status</h4>
+          <button @click="triggerCSVExport" class="btn btn-sm btn-outline-success mb-3" :disabled="exporting">
+            <span v-if="exporting" class="spinner-border spinner-border-sm me-2"></span>
+            Export Application History (CSV)
+          </button>
           <div class="table-responsive">
             <table class="table align-middle">
               <thead>
@@ -227,7 +231,9 @@ export default {
       alertMessage: '',
       alertClass: 'alert alert-info text-center',
       applying: false,
-      savingProfile: false
+      savingProfile: false,
+      exporting: false,
+        exportTaskID: null,
     }
   },
   mounted() {
@@ -311,6 +317,49 @@ export default {
       } finally {
         this.applying = false
       }
+    },
+    async triggerCSVExport() {
+      this.exporting = true
+      this.alertMessage = ''
+      try {
+        const response = await axios.post(`/api/student/${this.studentId}/export-csv`)
+        this.exportTaskID = response.data.task_id
+        this.alertClass = 'alert alert-info text-center'
+        this.alertMessage = response.data.message
+     
+        //Start polling the server every 1 second to see when the csv is ready
+        this.pollTaskStatus()
+      } catch (error) {
+        this.alertClass = 'alert alert-danger text-center'
+        this.alertMessage = "Failed to start export job."
+        this.exporting = false
+      }
+    },
+    async pollTaskStatus() {
+      const interval = setInterval(async () => {
+        try {
+          const response = await axios.get(`/api/task-status/${this.exportTaskID}`)
+       
+          if (response.data.state === 'SUCCESS') {
+            clearInterval(interval)
+            this.exporting = false
+            this.alertClass = 'alert alert-success text-center'
+            this.alertMessage = "CSV exported successfully! Downloading..."
+         
+            //Automatically download the file to the browser 
+            window.open(response.data.result, '_blank')
+            setTimeout(() => { this.alertMessage = '' }, 3000)
+          } else if (response.data.state === 'FAILURE') {
+            clearInterval(interval)
+            this.exporting = false
+            this.alertClass = 'alert alert-danger text-center'
+            this.alertMessage = "Background export failed."
+          }
+        } catch (error) {
+          clearInterval(interval)
+          this.exporting = false
+        }
+      }, 1000)
     },
     getStatusBadgeClass(status) {
       if (status === 'Selected') return 'badge bg-success'

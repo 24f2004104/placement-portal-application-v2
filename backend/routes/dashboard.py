@@ -1,9 +1,13 @@
+import json
+import redis
 from flask import Blueprint, request, jsonify
 from database import db
 from models import User, Student, Company, JobPosition, Application, Placement
 from datetime import datetime, timezone
 
 dashboard_bp = Blueprint('dashboard', __name__)
+#Creating a dedicated redis client for api caching (using database index 1 to keep cache separate from Celery) 
+redis_client = redis.StrictRedis(host='localhost', port=6379, db=1, decode_responses=True)
 
 # ADMIN ENDPOINTS
 
@@ -96,6 +100,9 @@ def update_drive_status(drive_id):
         return jsonify({"message": "Placement drive not found."}), 444
         
     drive.status = new_status
+    # Refresh cache policy: Delete cache so students see fresh approved drives immediately
+    redis_client.delete('approved_drives_cache')
+
     db.session.commit()
     return jsonify({"message": f"Placement drive status updated to {new_status}."}), 200
 
@@ -125,7 +132,7 @@ def delete_drive_admin(drive_id):
     db.session.commit()
     return jsonify({"message": "Placement drive removed successfully."}), 200
 
-#9. Admin view all applications 
+#9. Admin - view all applications 
 @dashboard_bp.route('/admin/applications', methods=['GET'])
 def get_all_applications_admin():
     apps = Application.query.all()
@@ -331,10 +338,19 @@ def update_joining_date(placement_id):
 
 # STUDENT ENDPOINTS 
 
-#1. Fetch approved placement drives 
+#1. Fetch approved placement drives  (with search/filter and redis caching)
 @dashboard_bp.route('/student/drives', methods=['GET'])
 def get_approved_drives():
     search_query = request.args.get('q', '').strip()
+    
+    #Cache policy: only cache generic listings (when there's no search query)
+    if not search_query:
+        cached_data = redis_client.get('approved_drives_cache')
+        if cached_data:
+            print("--- RETRIEVING DRIVES FROM REDIS CACHE ---") # Logs to terminal to prove caching works
+            return jsonify({"drives": json.loads(cached_data)}), 200
+    
+    #If cache misses or a search query is provided, query SQLite
     query = JobPosition.query.filter_by(status='Approved')
     
     if search_query:
@@ -346,7 +362,7 @@ def get_approved_drives():
     drives = query.all()
     drive_list = [{
         "id": d.id,
-        "company_name": d.company.company_name,
+        "company_name": d.company.company_name if d.company else "Unknown Company",
         "title": d.title,
         "description": d.description,
         "salary": d.salary,
@@ -354,6 +370,10 @@ def get_approved_drives():
         "deadline": d.deadline.strftime("%Y-%m-%d %H:%M"),
         "status": d.status
     } for d in drives]
+    
+    #Expiry policy: If it was a generic query, cache the result in Redis for 60 seconds
+    if not search_query:
+        redis_client.setex('approved_drives_cache', 60, json.dumps(drive_list))
         
     return jsonify({"drives": drive_list}), 200
 
@@ -463,3 +483,32 @@ def update_student_profile(student_id):
     
     db.session.commit()
     return jsonify({"message": "Profile updated successfully."}), 200
+
+#CELERY TASK ENDPOINTS 
+
+#1. Trigger async csv export
+@dashboard_bp.route('/student/<int:student_id>/export-csv', methods=['POST'])
+def trigger_csv_export(student_id):
+    from app import export_applications_csv
+    task = export_applications_csv.delay(student_id)
+    return jsonify({
+        "message": "Export task started in background...",
+        "task_id": task.id
+    }), 202
+
+#2.Poll task status 
+@dashboard_bp.route('/task-status/<task_id>', methods=['GET'])
+def get_task_status(task_id):
+    from app import celery
+    task = celery.AsyncResult(task_id)
+    
+    if task.state == 'PENDING':
+        response = {"state": task.state, "status": "Pending..."}
+    elif task.state == 'SUCCESS':
+        response = {"state": task.state, "result": task.result} # Contains file download url
+    elif task.state == 'FAILURE':
+        response = {"state": task.state, "status": "Task failed."}
+    else:
+        response = {"state": task.state, "status": task.state}
+        
+    return jsonify(response), 200

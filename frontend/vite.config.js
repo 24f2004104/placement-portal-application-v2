@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:5000', // Redirects frontend /api calls to our Flask server
         changeOrigin: true,
         secure: false
+      },
+      '/static': { // proxy static file downloads to flask
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        secure: false
       }
     }
   }
