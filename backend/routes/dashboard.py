@@ -86,13 +86,14 @@ def get_all_drives_admin():
     } for d in drives]
     return jsonify({"drives": drive_list}), 200
 
-#6. Admin approve/reject placement drive 
+#6. Admin approve/reject/close placement drive 
 @dashboard_bp.route('/admin/drive/<int:drive_id>/status', methods=['POST'])
 def update_drive_status(drive_id):
     data = request.get_json()
     new_status = data.get('status')
     
-    if new_status not in ['Approved', 'Rejected']:
+    # Allow Pending, Approved, Rejected, and Closed transitions
+    if new_status not in ['Approved', 'Rejected', 'Pending', 'Closed']:
         return jsonify({"message": "Invalid status."}), 400
         
     drive = JobPosition.query.get(drive_id)
@@ -100,10 +101,11 @@ def update_drive_status(drive_id):
         return jsonify({"message": "Placement drive not found."}), 444
         
     drive.status = new_status
-    # Refresh cache policy: Delete cache so students see fresh approved drives immediately
-    redis_client.delete('approved_drives_cache')
-
     db.session.commit()
+    
+    # Refresh Cache Policy: Invalidate cache so students see fresh approved drives immediately
+    redis_client.delete('approved_drives_cache')
+    
     return jsonify({"message": f"Placement drive status updated to {new_status}."}), 200
 
 #7. Removing/Deleting company profile 
@@ -146,6 +148,24 @@ def get_all_applications_admin():
         "status": app.status
     } for app in apps]
     return jsonify({"applications": app_list}), 200
+
+#10. Admin remove/delete a student profile [3]
+@dashboard_bp.route('/admin/student/<int:student_id>', methods=['DELETE'])
+def delete_student_admin(student_id):
+    student = Student.query.get(student_id)
+    if not student:
+        return jsonify({"message": "Student not found."}), 444
+        
+    user_id = student.user_id
+    db.session.delete(student)
+    
+    # Also delete their login credentials
+    user = User.query.get(user_id)
+    if user:
+        db.session.delete(user)
+        
+    db.session.commit()
+    return jsonify({"message": "Student profile removed successfully."}), 200
 
 
 # COMPANY ENDPOINTS 

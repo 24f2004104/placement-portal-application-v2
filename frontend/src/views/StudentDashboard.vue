@@ -1,95 +1,91 @@
 <template>
   <div class="container py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="text-primary">Student Dashboard</h2>
-      <button @click="handleLogout" class="btn btn-outline-danger">Logout</button>
-    </div>
+    <!-- Navigation bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom rounded-3 mb-4 py-3 px-3 shadow-sm">
+      <div class="container-fluid">
+        <span class="navbar-brand fw-bold text-primary fs-4">Placement Portal<span class="text-secondary">.v2</span></span>
 
-    <!-- Alert messages -->
+        <!-- Avatar dropdown menu -->
+        <div class="dropdown">
+          <div class="d-flex align-items-center role-dropdown" @click="dropdownOpen = !dropdownOpen" style="cursor: pointer;">
+            <div class="me-3 text-end d-none d-sm-block">
+              <div class="fw-semibold small text-muted">Welcome!</div>
+              <div class="text-primary fw-bold small text-capitalize">{{ username }}</div>
+            </div>
+            <div class="avatar-badge bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; text-transform: uppercase;">
+              {{ username ? username.charAt(0) : 'S' }}
+            </div>
+          </div>
+          <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-2 mt-2 show" style="display: block;" v-if="dropdownOpen">
+            <li>
+              <button @click="handleLogout" class="dropdown-item text-danger fw-semibold rounded-2 py-2">
+                Logout
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Alert Messages -->
     <div v-if="alertMessage" :class="alertClass" role="alert">
       {{ alertMessage }}
     </div>
 
-    <!-- Tab navigation buttons -->
-    <ul class="nav nav-tabs mb-4" id="studentTab" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button 
-          class="nav-link" 
-          @click="activeTab = 'drives'" 
-          :class="{ active: activeTab === 'drives' }"
-          type="button"
-        >
-          Active Placement Drives
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button 
-          class="nav-link" 
-          @click="activeTab = 'applications'" 
-          :class="{ active: activeTab === 'applications' }"
-          type="button"
-        >
-          My Applications History
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button 
-          class="nav-link" 
-          @click="activeTab = 'placements'" 
-          :class="{ active: activeTab === 'placements' }"
-          type="button"
-        >
-          My Placements
-        </button>
-      </li>
-      <!-- Profile tab -->
-      <li class="nav-item" role="presentation">
-        <button 
-          class="nav-link" 
-          @click="activeTab = 'profile'" 
-          :class="{ active: activeTab === 'profile' }"
-          type="button"
-        >
-          My Profile
-        </button>
-      </li>
-    </ul>
+    <!-- Tab navigation -->
+    <div class="nav-container mb-4">
+      <ul class="nav nav-tabs border-bottom-0 d-flex flex-wrap text-center" id="studentTab" role="tablist">
+        <li class="nav-item tab-item" role="presentation">
+          <button class="nav-link py-3 w-100" @click="activeTab = 'drives'" :class="{ active: activeTab === 'drives' }" type="button">Active Placement Drives</button>
+        </li>
+        <li class="nav-item tab-item" role="presentation">
+          <button class="nav-link py-3 w-100" @click="activeTab = 'applications'" :class="{ active: activeTab === 'applications' }" type="button">My Applications History</button>
+        </li>
+        <li class="nav-item tab-item" role="presentation">
+          <button class="nav-link py-3 w-100" @click="activeTab = 'placements'" :class="{ active: activeTab === 'placements' }" type="button">My Placements</button>
+        </li>
+        <li class="nav-item tab-item" role="presentation">
+          <button class="nav-link py-3 w-100" @click="activeTab = 'profile'" :class="{ active: activeTab === 'profile' }" type="button">My Profile</button>
+        </li>
+      </ul>
+    </div>
 
-    <!-- Tab content area -->
+    <!-- Tab content -->
     <div class="tab-content" id="studentTabContent">
       
-      <!-- TAB 1: ACTIVE PLACEMENT DRIVES -->
+      <!-- Tab1: Active placement drives -->
       <div v-if="activeTab === 'drives'">
         <div class="card shadow-sm p-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="text-secondary mb-0">Explore Job Openings</h4>
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
+            <h4 class="text-dark fw-bold mb-0" style="font-size: 1.25rem;">Explore Job Openings</h4>
             <input 
               type="text" 
               v-model="searchQuery" 
               @input="fetchDrives" 
-              class="form-control w-auto d-inline-block" 
+              class="form-control w-auto" 
               placeholder="Search by job title..."
             />
           </div>
 
           <div class="row g-3">
             <div class="col-md-6" v-for="drive in drives" :key="drive.id">
-              <div class="card h-100 border-light shadow-sm">
-                <div class="card-body">
-                  <h5 class="card-title text-primary">{{ drive.title }}</h5>
-                  <h6 class="card-subtitle mb-2 text-muted">{{ drive.company_name }}</h6>
-                  <p class="card-text text-truncate-3">{{ drive.description }}</p>
-                  
-                  <ul class="list-unstyled mb-3 small text-muted">
-                    <li><strong>Salary:</strong> {{ drive.salary ? 'INR ' + drive.salary : 'To be discussed' }}</li>
-                    <li><strong>Eligibility:</strong> {{ drive.eligibility_criteria || 'Open to all' }}</li>
-                    <li><strong>Deadline:</strong> {{ drive.deadline }}</li>
-                  </ul>
+              <div class="card h-100 border-light shadow-sm interactive-card">
+                <div class="card-body d-flex flex-column justify-content-between">
+                  <div>
+                    <h5 class="card-title text-primary fw-bold">{{ drive.title }}</h5>
+                    <h6 class="card-subtitle mb-2 text-muted fw-semibold">{{ drive.company_name }}</h6>
+                    <p class="card-text text-truncate-3 small text-muted">{{ drive.description }}</p>
+                    
+                    <ul class="list-unstyled mb-3 small text-muted">
+                      <li><strong>Salary Package:</strong> {{ drive.salary ? 'INR ' + drive.salary : 'To be discussed' }}</li>
+                      <li><strong>Eligibility:</strong> {{ drive.eligibility_criteria || 'Open to all' }}</li>
+                      <li><strong>Deadline:</strong> {{ drive.deadline }}</li>
+                    </ul>
+                  </div>
 
                   <button 
                     @click="applyToJob(drive.id)" 
-                    class="btn btn-sm btn-primary w-100"
+                    class="btn btn-sm btn-primary w-100 mt-2"
                     :disabled="applying"
                   >
                     Apply Now
@@ -104,16 +100,18 @@
         </div>
       </div>
 
-      <!-- TAB 2: APPLICATION HISTORY -->
+      <!-- Tab2: Application history -->
       <div v-if="activeTab === 'applications'">
         <div class="card shadow-sm p-4">
-          <h4 class="mb-3 text-secondary">Your Job Application Status</h4>
-          <button @click="triggerCSVExport" class="btn btn-sm btn-outline-success mb-3" :disabled="exporting">
-            <span v-if="exporting" class="spinner-border spinner-border-sm me-2"></span>
-            Export Application History (CSV)
-          </button>
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
+            <h4 class="text-dark fw-bold mb-0" style="font-size: 1.25rem;">Your Job Application Status</h4>
+            <button @click="triggerCSVExport" class="btn btn-sm btn-outline-success align-self-start align-self-sm-center" :disabled="exporting">
+              <span v-if="exporting" class="spinner-border spinner-border-sm me-2"></span>
+              Export Application History (CSV)
+            </button>
+          </div>
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table table-hover-rows align-middle">
               <thead>
                 <tr>
                   <th>Job Title</th>
@@ -142,12 +140,12 @@
         </div>
       </div>
 
-      <!-- TAB 3: PLACEMENT RESULTS -->
+      <!-- Tab3: Placement results -->
       <div v-if="activeTab === 'placements'">
         <div class="card shadow-sm p-4">
-          <h4 class="mb-3 text-secondary">Successful Job Placements</h4>
+          <h4 class="mb-3 text-secondary fw-bold">Successful Job Placements</h4>
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table table-hover-rows align-middle">
               <thead>
                 <tr>
                   <th>Job Title</th>
@@ -172,28 +170,28 @@
         </div>
       </div>
 
-      <!-- TAB4: MY PROFILE (Update profile) -->
+      <!-- Tab4: My profile-->
       <div v-if="activeTab === 'profile'">
         <div class="card shadow-sm p-4" style="max-width: 600px; margin: 0 auto;">
-          <h4 class="mb-3 text-secondary border-bottom pb-2">Manage Your Profile Details</h4>
+          <h4 class="mb-3 text-secondary border-bottom pb-2 fw-bold">Manage Your Profile Details</h4>
           <form @submit.prevent="saveProfile">
             <div class="mb-3">
-              <label for="profileName" class="form-label">Full Name</label>
+              <label for="profileName" class="form-label fw-semibold text-muted small">Full Name</label>
               <input type="text" v-model="profile.name" id="profileName" class="form-control" required />
             </div>
 
             <div class="mb-3">
-              <label for="profileEd" class="form-label">Education / Branch</label>
+              <label for="profileEd" class="form-label fw-semibold text-muted small">Education / Branch</label>
               <input type="text" v-model="profile.education" id="profileEd" class="form-control" />
             </div>
 
             <div class="mb-3">
-              <label for="profileSkills" class="form-label">Key Skills</label>
+              <label for="profileSkills" class="form-label fw-semibold text-muted small">Key Skills</label>
               <input type="text" v-model="profile.skills" id="profileSkills" class="form-control" />
             </div>
 
             <div class="mb-3">
-              <label for="profileExp" class="form-label">Experience</label>
+              <label for="profileExp" class="form-label fw-semibold text-muted small">Experience</label>
               <textarea v-model="profile.experience" id="profileExp" class="form-control" rows="3"></textarea>
             </div>
 
@@ -216,6 +214,8 @@ export default {
   name: 'StudentDashboard',
   data() {
     return {
+      username: '',
+      dropdownOpen: false, 
       studentId: null,
       activeTab: 'drives',
       searchQuery: '',
@@ -233,10 +233,11 @@ export default {
       applying: false,
       savingProfile: false,
       exporting: false,
-        exportTaskID: null,
+      exportTaskID: null
     }
   },
   mounted() {
+    this.username = localStorage.getItem('username') || 'Student'
     this.studentId = localStorage.getItem('profile_id')
     this.fetchDrives()
     this.fetchApplications()
@@ -326,8 +327,6 @@ export default {
         this.exportTaskID = response.data.task_id
         this.alertClass = 'alert alert-info text-center'
         this.alertMessage = response.data.message
-     
-        //Start polling the server every 1 second to see when the csv is ready
         this.pollTaskStatus()
       } catch (error) {
         this.alertClass = 'alert alert-danger text-center'
@@ -339,14 +338,13 @@ export default {
       const interval = setInterval(async () => {
         try {
           const response = await axios.get(`/api/task-status/${this.exportTaskID}`)
-       
+          
           if (response.data.state === 'SUCCESS') {
             clearInterval(interval)
             this.exporting = false
             this.alertClass = 'alert alert-success text-center'
             this.alertMessage = "CSV exported successfully! Downloading..."
-         
-            //Automatically download the file to the browser 
+            
             window.open(response.data.result, '_blank')
             setTimeout(() => { this.alertMessage = '' }, 3000)
           } else if (response.data.state === 'FAILURE') {
@@ -375,8 +373,25 @@ export default {
 }
 </script>
 
-<style>
-/* Truncating descriptions to 3 lines cleanly for cards */
+<style scoped>
+
+.tab-item {
+  width: 25%; 
+}
+
+@media (max-width: 992px) {
+  .tab-item {
+    width: 50%; 
+  }
+}
+
+@media (max-width: 576px) {
+  .tab-item {
+    width: 100%; 
+  }
+}
+
+/* Truncate descriptions cleanly for cards */
 .text-truncate-3 {
   display: -webkit-box;
   -webkit-line-clamp: 3;

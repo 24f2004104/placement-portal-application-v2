@@ -1,49 +1,69 @@
 <template>
   <div class="container py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="text-primary">Company Dashboard</h2>
-      <button @click="handleLogout" class="btn btn-outline-danger">Logout</button>
-    </div>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom rounded-3 mb-4 py-3 px-3 shadow-sm">
+      <div class="container-fluid">
+        <span class="navbar-brand fw-bold text-primary fs-4">Placement Portal<span class="text-secondary">.v2</span></span>
+        
+        <!-- Avatar Dropdown Menu -->
+        <div class="dropdown">
+          <div class="d-flex align-items-center role-dropdown" @click="dropdownOpen = !dropdownOpen" style="cursor: pointer;">
+            <div class="me-3 text-end d-none d-sm-block">
+              <div class="fw-semibold small text-muted">Welcome!</div>
+              <div class="text-primary fw-bold small text-capitalize">{{ username }}</div>
+            </div>
+            <div class="avatar-badge bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; text-transform: uppercase;">
+              {{ username ? username.charAt(0) : 'C' }}
+            </div>
+          </div>
+          <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-2 mt-2 show" style="display: block;" v-if="dropdownOpen">
+            <li>
+              <button @click="handleLogout" class="dropdown-item text-danger fw-semibold rounded-2 py-2">
+                Logout
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
 
-    <!-- Alert messages -->
-    <div v-if="alertMessage" class="alert alert-info text-center" role="alert">
+    <div v-if="alertMessage" class="alert alert-info text-center rounded-3 p-2 mb-3" role="alert">
       {{ alertMessage }}
     </div>
 
     <div class="row">
-      <!-- Left column: Dual-mode form -->
-      <div class="col-md-5 mb-4">
-        <div class="card shadow-sm p-4 border-primary">
-          <h4 class="mb-3 text-secondary">{{ editMode ? 'Modify Placement Drive' : 'Create Placement Drive' }}</h4>
+      <!-- Create/edit form -->
+      <div class="col-12 col-lg-5 mb-4">
+        <div class="card p-4">
+          <h4 class="mb-3 text-secondary fw-bold" style="font-size: 1.15rem;">{{ editMode ? 'Modify Placement Drive' : 'Create Placement Drive' }}</h4>
           <form @submit.prevent="handleSubmit">
             <div class="mb-3">
-              <label for="title" class="form-label">Job Title</label>
+              <label for="title" class="form-label fw-semibold text-muted small">Job Title</label>
               <input type="text" v-model="newDrive.title" id="title" class="form-control" placeholder="e.g., Software Engineer" required />
             </div>
 
             <div class="mb-3">
-              <label for="description" class="form-label">Job Description</label>
+              <label for="description" class="form-label fw-semibold text-muted small">Job Description</label>
               <textarea v-model="newDrive.description" id="description" class="form-control" rows="3" placeholder="Describe the job role..." required></textarea>
             </div>
 
             <div class="mb-3">
-              <label for="salary" class="form-label">Annual Salary (INR)</label>
+              <label for="salary" class="form-label fw-semibold text-muted small">Annual Salary (INR)</label>
               <input type="number" v-model="newDrive.salary" id="salary" class="form-control" placeholder="e.g., 600000" />
             </div>
 
             <div class="mb-3">
-              <label for="criteria" class="form-label">Eligibility Criteria</label>
+              <label for="criteria" class="form-label fw-semibold text-muted small">Eligibility Criteria</label>
               <input type="text" v-model="newDrive.criteria" id="criteria" class="form-control" placeholder="e.g., CGPA > 8.0, CSE only" />
             </div>
 
             <div class="mb-3">
-              <label for="deadline" class="form-label">Application Deadline</label>
+              <label for="deadline" class="form-label fw-semibold text-muted small">Application Deadline</label>
               <input type="datetime-local" v-model="newDrive.deadline" id="deadline" class="form-control" required />
             </div>
 
             <div class="mb-3" v-if="editMode">
-              <label for="status" class="form-label">Status</label>
+              <label for="status" class="form-label fw-semibold text-muted small">Status</label>
               <select v-model="newDrive.status" id="status" class="form-select">
                 <option value="Pending">Pending Admin Approval</option>
                 <option value="Approved">Approved / Active</option>
@@ -62,12 +82,13 @@
         </div>
       </div>
 
-      <!-- Right column: Lists -->
-      <div class="col-md-7 mb-4">
-        <div class="card shadow-sm p-4 mb-4">
-          <h4 class="mb-3 text-secondary">Your Posted Placement Drives</h4>
+      <!-- Drives, applicants & placements column -->
+      <div class="col-12 col-lg-7 mb-4">
+        <!-- Posted drives table -->
+        <div class="card p-4 mb-4">
+          <h4 class="mb-3 text-secondary fw-bold" style="font-size: 1.15rem;">Your Posted Placement Drives</h4>
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table table-hover-rows align-middle">
               <thead>
                 <tr>
                   <th>Job Title</th>
@@ -86,15 +107,12 @@
                     </span>
                   </td>
                   <td class="text-end">
-                    <button @click="viewApplicants(drive.id)" class="btn btn-sm btn-outline-primary me-1">
-                      Applicants
-                    </button>
-                    <button @click="enableEditMode(drive)" class="btn btn-sm btn-outline-secondary me-1">
-                      Edit
-                    </button>
-                    <button @click="deleteDrive(drive.id)" class="btn btn-sm btn-outline-danger">
-                      Delete
-                    </button>
+                    <!-- Flex alignment fixes cramping in half-screen -->
+                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                      <button @click="viewApplicants(drive.id)" class="btn btn-sm btn-outline-primary">Applicants</button>
+                      <button @click="enableEditMode(drive)" class="btn btn-sm btn-outline-secondary">Edit</button>
+                      <button @click="deleteDrive(drive.id)" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </div>
                   </td>
                 </tr>
                 <tr v-if="drives.length === 0">
@@ -106,10 +124,12 @@
         </div>
 
         <!-- Student applicants sub-panel -->
-        <div class="card shadow-sm p-4 mb-4" v-if="activeDriveTitle">
-          <h4 class="mb-3 text-secondary">Applicants for: <span class="text-primary">{{ activeDriveTitle }}</span></h4>
+        <div class="card p-4 mb-4 position-relative" v-if="activeDriveTitle">
+          <button @click="closeApplicants" class="btn-close position-absolute" style="top: 20px; right: 20px;" aria-label="Close"></button>
+          
+          <h4 class="mb-3 text-secondary fw-bold" style="font-size: 1.15rem; max-width: 90%;">Applicants for: <span class="text-primary">{{ activeDriveTitle }}</span></h4>
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table table-hover-rows align-middle">
               <thead>
                 <tr>
                   <th>Student Name</th>
@@ -149,15 +169,15 @@
         </div>
 
         <!-- Successful placements & joining date management -->
-        <div class="card shadow-sm p-4">
-          <h4 class="mb-3 text-secondary border-bottom pb-2">Successful Placements & Joining Dates</h4>
+        <div class="card p-4 shadow-sm">
+          <h4 class="mb-3 text-secondary fw-bold border-bottom pb-2" style="font-size: 1.15rem;">Successful Placements & Joining Dates</h4>
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table table-hover-rows align-middle">
               <thead>
                 <tr>
                   <th>Selected Student</th>
                   <th>Job Position</th>
-                  <th>Salary Package</th>
+                  <th>Salary</th>
                   <th>Joining Date</th>
                   <th class="text-end">Update Date</th>
                 </tr>
@@ -190,7 +210,6 @@
             </table>
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -203,10 +222,12 @@ export default {
   name: 'CompanyDashboard',
   data() {
     return {
+      username: '',
+      dropdownOpen: false, 
       companyId: null,
       drives: [],
       applicants: [],
-      placements: [], // Placements array
+      placements: [],
       activeDriveId: null,
       activeDriveTitle: '',
       alertMessage: '',
@@ -224,6 +245,7 @@ export default {
     }
   },
   mounted() {
+    this.username = localStorage.getItem('username') || 'Company'
     this.companyId = localStorage.getItem('profile_id')
     this.fetchDrives()
     this.fetchPlacements()
@@ -321,10 +343,9 @@ export default {
         const response = await axios.delete(`/api/company/drive/${driveId}`)
         this.showAlert(response.data.message)
         this.fetchDrives()
-        this.fetchPlacements() // Refresh placements if drive is deleted
+        this.fetchPlacements()
         if (this.activeDriveId === driveId) {
-          this.applicants = []
-          this.activeDriveTitle = ''
+          this.closeApplicants()
         }
       } catch (error) {
         console.error("Error deleting drive:", error)
@@ -340,6 +361,11 @@ export default {
         console.error("Error fetching applicants:", error)
       }
     },
+    closeApplicants() {
+      this.applicants = []
+      this.activeDriveId = null
+      this.activeDriveTitle = ''
+    },
     async updateApplicantStatus(applicationId, newStatus) {
       try {
         const response = await axios.post(`/api/company/application/${applicationId}/status`, {
@@ -347,7 +373,7 @@ export default {
         })
         this.showAlert(response.data.message)
         this.viewApplicants(this.activeDriveId)
-        this.fetchPlacements() // Refresh placements list dynamically 
+        this.fetchPlacements()
       } catch (error) {
         console.error("Error updating status:", error)
       }
