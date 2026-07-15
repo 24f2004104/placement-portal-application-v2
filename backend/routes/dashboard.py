@@ -1,17 +1,17 @@
-import json
-import redis
 from flask import Blueprint, request, jsonify
 from database import db
 from models import User, Student, Company, JobPosition, Application, Placement
 from datetime import datetime, timezone
+import redis
+import json
 
 dashboard_bp = Blueprint('dashboard', __name__)
-#Creating a dedicated redis client for api caching (using database index 1 to keep cache separate from Celery) 
+
 redis_client = redis.StrictRedis(host='localhost', port=6379, db=1, decode_responses=True)
 
 # ADMIN ENDPOINTS
 
-#1. Admin metrics overview 
+#1. Admin metrics overview
 @dashboard_bp.route('/admin/metrics', methods=['GET'])
 def get_admin_metrics():
     total_students = Student.query.count()
@@ -26,7 +26,7 @@ def get_admin_metrics():
         "total_applications": total_applications
     }), 200
 
-#2. Get all students and companies 
+#2. Getting all students and companies
 @dashboard_bp.route('/admin/users', methods=['GET'])
 def get_all_users():
     students = Student.query.all()
@@ -49,7 +49,7 @@ def get_all_users():
         "companies": company_list
     }), 200
 
-#3. Toggle user active status 
+#3. Toggle user active status
 @dashboard_bp.route('/admin/user/<int:user_id>/toggle-status', methods=['POST'])
 def toggle_user_status(user_id):
     user = User.query.get(user_id)
@@ -61,7 +61,7 @@ def toggle_user_status(user_id):
     status_str = "activated" if user.is_active else "deactivated"
     return jsonify({"message": f"User account has been {status_str}."}), 200
 
-#4. Approve company profile 
+#4. Approve company profile
 @dashboard_bp.route('/admin/company/<int:company_id>/approve', methods=['POST'])
 def approve_company(company_id):
     company = Company.query.get(company_id)
@@ -72,7 +72,7 @@ def approve_company(company_id):
     db.session.commit()
     return jsonify({"message": f"Company '{company.company_name}' approved successfully!"}), 200
 
-#5. Fetch all placement drives 
+#5. Fetch all placement drives
 @dashboard_bp.route('/admin/drives', methods=['GET'])
 def get_all_drives_admin():
     drives = JobPosition.query.all()
@@ -86,13 +86,12 @@ def get_all_drives_admin():
     } for d in drives]
     return jsonify({"drives": drive_list}), 200
 
-#6. Admin approve/reject/close placement drive 
+#6. Admin - approve/reject/close placement drive
 @dashboard_bp.route('/admin/drive/<int:drive_id>/status', methods=['POST'])
 def update_drive_status(drive_id):
     data = request.get_json()
     new_status = data.get('status')
     
-    # Allow Pending, Approved, Rejected, and Closed transitions
     if new_status not in ['Approved', 'Rejected', 'Pending', 'Closed']:
         return jsonify({"message": "Invalid status."}), 400
         
@@ -105,10 +104,9 @@ def update_drive_status(drive_id):
     
     # Refresh Cache Policy: Invalidate cache so students see fresh approved drives immediately
     redis_client.delete('approved_drives_cache')
-    
     return jsonify({"message": f"Placement drive status updated to {new_status}."}), 200
 
-#7. Removing/Deleting company profile 
+#7. Removing/Deleting company profile
 @dashboard_bp.route('/admin/company/<int:company_id>', methods=['DELETE'])
 def delete_company(company_id):
     company = Company.query.get(company_id)
@@ -116,14 +114,28 @@ def delete_company(company_id):
         return jsonify({"message": "Company not found."}), 444
         
     user_id = company.user_id
+    
+    # Cascade Deletion
+    # Deleteing placements linked to this company
+    Placement.query.filter_by(company_id=company_id).delete()
+    
+    # Deleting company drives & student applications linked to those drives
+    drives = JobPosition.query.filter_by(company_id=company_id).all()
+    for d in drives:
+        Application.query.filter_by(job_id=d.id).delete()
+        db.session.delete(d)
+        
     db.session.delete(company)
+    
     user = User.query.get(user_id)
     if user:
         db.session.delete(user)
+        
     db.session.commit()
-    return jsonify({"message": "Company profile removed successfully."}), 200
+    redis_client.delete('approved_drives_cache')
+    return jsonify({"message": "Company profile and all associated data purged successfully."}), 200
 
-#8. Removing/Deleting a placement drive 
+#8. Removing/Deleting a placement drive
 @dashboard_bp.route('/admin/drive/<int:drive_id>', methods=['DELETE'])
 def delete_drive_admin(drive_id):
     drive = JobPosition.query.get(drive_id)
@@ -132,9 +144,10 @@ def delete_drive_admin(drive_id):
         
     db.session.delete(drive)
     db.session.commit()
+    redis_client.delete('approved_drives_cache')
     return jsonify({"message": "Placement drive removed successfully."}), 200
 
-#9. Admin - view all applications 
+#9. Admin - view all applications
 @dashboard_bp.route('/admin/applications', methods=['GET'])
 def get_all_applications_admin():
     apps = Application.query.all()
@@ -149,7 +162,7 @@ def get_all_applications_admin():
     } for app in apps]
     return jsonify({"applications": app_list}), 200
 
-#10. Admin remove/delete a student profile [3]
+#10. Admin - remove/delete a student profile
 @dashboard_bp.route('/admin/student/<int:student_id>', methods=['DELETE'])
 def delete_student_admin(student_id):
     student = Student.query.get(student_id)
@@ -157,9 +170,13 @@ def delete_student_admin(student_id):
         return jsonify({"message": "Student not found."}), 444
         
     user_id = student.user_id
+    
+    # Purge student applications and placement records
+    Application.query.filter_by(student_id=student_id).delete()
+    Placement.query.filter_by(student_id=student_id).delete()
+    
     db.session.delete(student)
     
-    # Also delete their login credentials
     user = User.query.get(user_id)
     if user:
         db.session.delete(user)
@@ -205,7 +222,7 @@ def create_placement_drive():
     db.session.commit()
     return jsonify({"message": "Placement drive created successfully! Awaiting Admin approval."}), 201
 
-#2. Get all drives for a company 
+#2. Get all drives for a company
 @dashboard_bp.route('/company/<int:company_id>/drives', methods=['GET'])
 def get_company_drives(company_id):
     drives = JobPosition.query.filter_by(company_id=company_id).all()
@@ -218,7 +235,7 @@ def get_company_drives(company_id):
     
     return jsonify({"drives": drive_list}), 200
 
-#3. View applications received for a specific drive 
+#3. View applications received for a specific drive
 @dashboard_bp.route('/company/drive/<int:drive_id>/applications', methods=['GET'])
 def get_drive_applications(drive_id):
     drive = JobPosition.query.get(drive_id)
@@ -257,7 +274,6 @@ def update_application_status(app_id):
     app.status = new_status
     
     if new_status == 'Selected':
-        # Create placement record if student selected
         existing_placement = Placement.query.filter_by(
             student_id=app.student_id, 
             position_id=app.job_id
@@ -274,7 +290,6 @@ def update_application_status(app_id):
             )
             db.session.add(new_placement)
     else:
-        # If changed away from Selected, deletes any existing placement 
         existing_placement = Placement.query.filter_by(
             student_id=app.student_id, 
             position_id=app.job_id
@@ -308,6 +323,7 @@ def update_drive_company(drive_id):
             return jsonify({"message": "Invalid date format. Use YYYY-MM-DD HH:MM."}), 400
             
     db.session.commit()
+    redis_client.delete('approved_drives_cache')
     return jsonify({"message": "Placement drive updated successfully."}), 200
 
 #6. Deleting/Removing a placement drive
@@ -319,6 +335,7 @@ def delete_drive_company(drive_id):
         
     db.session.delete(drive)
     db.session.commit()
+    redis_client.delete('approved_drives_cache')
     return jsonify({"message": "Placement drive deleted successfully."}), 200
 
 #7. Get company hired candidates (placements)
@@ -355,10 +372,42 @@ def update_joining_date(placement_id):
     db.session.commit()
     return jsonify({"message": "Joining date updated successfully."}), 200
 
+#9. Get company profile details
+@dashboard_bp.route('/company/<int:company_id>/profile', methods=['GET'])
+def get_company_profile(company_id):
+    company = Company.query.get(company_id)
+    if not company:
+        return jsonify({"message": "Company profile not found."}), 444
+        
+    return jsonify({
+        "company_name": company.company_name,
+        "industry": company.industry,
+        "location": company.location,
+        "hr_contact": company.hr_contact,
+        "website": company.website
+    }), 200
+
+#10. Update company profile details
+@dashboard_bp.route('/company/<int:company_id>/profile', methods=['PUT'])
+def update_company_profile(company_id):
+    data = request.get_json()
+    company = Company.query.get(company_id)
+    if not company:
+        return jsonify({"message": "Company profile not found."}), 444
+        
+    company.company_name = data.get('company_name', company.company_name)
+    company.industry = data.get('industry', company.industry)
+    company.location = data.get('location', company.location)
+    company.hr_contact = data.get('hr_contact', company.hr_contact)
+    company.website = data.get('website', company.website)
+    
+    db.session.commit()
+    return jsonify({"message": "Company profile updated successfully."}), 200
+
 
 # STUDENT ENDPOINTS 
 
-#1. Fetch approved placement drives  (with search/filter and redis caching)
+# 1. Fetch Approved Placement Drives
 @dashboard_bp.route('/student/drives', methods=['GET'])
 def get_approved_drives():
     search_query = request.args.get('q', '').strip()
@@ -367,9 +416,9 @@ def get_approved_drives():
     if not search_query:
         cached_data = redis_client.get('approved_drives_cache')
         if cached_data:
-            print("--- RETRIEVING DRIVES FROM REDIS CACHE ---") # Logs to terminal to prove caching works
+            print("--- RETRIEVING DRIVES FROM REDIS CACHE ---")
             return jsonify({"drives": json.loads(cached_data)}), 200
-    
+
     #If cache misses or a search query is provided, query SQLite
     query = JobPosition.query.filter_by(status='Approved')
     
@@ -390,7 +439,7 @@ def get_approved_drives():
         "deadline": d.deadline.strftime("%Y-%m-%d %H:%M"),
         "status": d.status
     } for d in drives]
-    
+
     #Expiry policy: If it was a generic query, cache the result in Redis for 60 seconds
     if not search_query:
         redis_client.setex('approved_drives_cache', 60, json.dumps(drive_list))
@@ -504,7 +553,7 @@ def update_student_profile(student_id):
     db.session.commit()
     return jsonify({"message": "Profile updated successfully."}), 200
 
-#CELERY TASK ENDPOINTS 
+#CELERY TASK ENDPOINTS
 
 #1. Trigger async csv export
 @dashboard_bp.route('/student/<int:student_id>/export-csv', methods=['POST'])
@@ -516,7 +565,7 @@ def trigger_csv_export(student_id):
         "task_id": task.id
     }), 202
 
-#2.Poll task status 
+#2. Poll task status
 @dashboard_bp.route('/task-status/<task_id>', methods=['GET'])
 def get_task_status(task_id):
     from app import celery
@@ -525,7 +574,7 @@ def get_task_status(task_id):
     if task.state == 'PENDING':
         response = {"state": task.state, "status": "Pending..."}
     elif task.state == 'SUCCESS':
-        response = {"state": task.state, "result": task.result} # Contains file download url
+        response = {"state": task.state, "result": task.result}
     elif task.state == 'FAILURE':
         response = {"state": task.state, "status": "Task failed."}
     else:

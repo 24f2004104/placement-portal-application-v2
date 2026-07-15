@@ -55,8 +55,8 @@
       </div>
     </div>
 
-    <!-- Alert Messages -->
-    <div v-if="alertMessage" class="alert alert-info text-center rounded-3 p-2 mb-3" role="alert">
+    <!-- Sticky alerts -->
+    <div v-if="alertMessage" class="alert alert-info text-center sticky-alert" role="alert">
       {{ alertMessage }}
     </div>
 

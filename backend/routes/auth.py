@@ -109,3 +109,21 @@ def login():
         "username": user.username,
         "profile_id": profile_id
     }), 200
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    username = data.get('username')
+    new_password = data.get('new_password')
+    
+    if not username or not new_password:
+        return jsonify({"message": "Username and new password are required."}), 400
+        
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({"message": "Username not found."}), 444
+        
+    # Re-hashing and securely saving the new password
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    return jsonify({"message": "Password reset successfully! Please sign in."}), 200

@@ -15,8 +15,8 @@ export default {
 
 /* Color scheme */
 :root {
-  --primary: #4f46e5;          
-  --primary-hover: #4338ca;
+  --primary: #2563eb;          
+  --primary-hover: #1d4ed8;
   --success: #10b981;          
   --danger: #ef4444;            
   --warning: #f59e0b;           
@@ -41,10 +41,10 @@ body {
   border-radius: var(--border-radius) !important;
   background: #ffffff !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
-  overflow: hidden; /* Fixes unexpected internal layout overflows */
+  overflow: hidden; 
 }
 
-/* Glowing outline highlighting on hover for job cards */
+/* Glowing outline highlighting on hover */
 .interactive-card {
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
@@ -52,7 +52,7 @@ body {
 .interactive-card:hover {
   transform: scale(1.01);
   border-color: var(--primary) !important;
-  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.06) !important;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.08) !important;
 }
 
 /* Input fields */
@@ -67,7 +67,7 @@ body {
 
 .form-control:focus, .form-select:focus {
   border-color: var(--primary) !important;
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.08) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
 }
 
 /* Buttons */
@@ -105,11 +105,10 @@ body {
   transition: all 0.15s ease-in-out;
 }
 
-/* Row interaction background highlight */
 .table-hover-rows tbody tr:hover {
   background-color: #f1f5f9 !important; 
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.04) !important;
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.04) !important;
 }
 
 .table td {
@@ -141,7 +140,7 @@ body {
   border-radius: 4px;
 }
 
-/* Badges & badged dropdowns */
+/* Badges & Dropdown badges */
 .badge, .badge-select {
   width: 120px !important; 
   display: inline-block !important;
@@ -155,7 +154,7 @@ body {
 }
 
 .badge-select option {
-  text-align: left;
+  text-align: center !important;
 }
 
 .badge-select {
@@ -170,6 +169,19 @@ body {
 .dropdown-menu-end {
   right: 0 !important;
   left: auto !important;
+}
+
+/* Sticky alerts */
+.sticky-alert {
+  position: fixed !important;
+  top: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2050 !important;
+  width: 90% !important;
+  max-width: 480px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 10px !important;
 }
 
 .bg-success { background-color: var(--success) !important; }

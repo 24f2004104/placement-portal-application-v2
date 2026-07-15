@@ -5,7 +5,6 @@
       <div class="container-fluid">
         <span class="navbar-brand fw-bold text-primary fs-4">Placement Portal<span class="text-secondary">.v2</span></span>
 
-        <!-- Avatar dropdown menu -->
         <div class="dropdown">
           <div class="d-flex align-items-center role-dropdown" @click="dropdownOpen = !dropdownOpen" style="cursor: pointer;">
             <div class="me-3 text-end d-none d-sm-block">
@@ -27,8 +26,8 @@
       </div>
     </nav>
 
-    <!-- Alert Messages -->
-    <div v-if="alertMessage" :class="alertClass" role="alert">
+    <!-- Sticky alerts -->
+    <div v-if="alertMessage" :class="alertClass + ' sticky-alert'" role="alert">
       {{ alertMessage }}
     </div>
 
@@ -83,12 +82,13 @@
                     </ul>
                   </div>
 
+                  <!-- Dynamic applied feedback buttons -->
                   <button 
                     @click="applyToJob(drive.id)" 
-                    class="btn btn-sm btn-primary w-100 mt-2"
-                    :disabled="applying"
+                    :class="hasApplied(drive.id) ? 'btn btn-sm btn-secondary w-100 mt-2' : 'btn btn-sm btn-primary w-100 mt-2'"
+                    :disabled="applying || hasApplied(drive.id)"
                   >
-                    Apply Now
+                    {{ hasApplied(drive.id) ? 'Applied' : 'Apply Now' }}
                   </button>
                 </div>
               </div>
@@ -105,7 +105,8 @@
         <div class="card shadow-sm p-4">
           <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3">
             <h4 class="text-dark fw-bold mb-0" style="font-size: 1.25rem;">Your Job Application Status</h4>
-            <button @click="triggerCSVExport" class="btn btn-sm btn-outline-success align-self-start align-self-sm-center" :disabled="exporting">
+            <!-- Export csv button -->
+            <button @click="triggerCSVExport" class="btn btn-sm btn-outline-success align-self-start align-sm-center" :disabled="exporting">
               <span v-if="exporting" class="spinner-border spinner-border-sm me-2"></span>
               Export Application History (CSV)
             </button>
@@ -215,7 +216,7 @@ export default {
   data() {
     return {
       username: '',
-      dropdownOpen: false, 
+      dropdownOpen: false,
       studentId: null,
       activeTab: 'drives',
       searchQuery: '',
@@ -276,6 +277,10 @@ export default {
       } catch (error) {
         console.error("Error fetching profile details:", error)
       }
+    },
+    
+    hasApplied(driveId) {
+      return this.applications.some(app => app.drive_id === driveId)
     },
     async saveProfile() {
       this.savingProfile = true
